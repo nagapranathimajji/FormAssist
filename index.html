@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FormAssist — Speech to Formal Letters</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">FA</div>
+      <div>
+        <h1>FormAssist</h1>
+        <p class="tag">Speech → Formal Letters (Telugu & English)</p>
+      </div>
+    </div>
+    <div class="right-actions">
+      <label class="theme-note">Theme: Deep Purple</label>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Module selection -->
+    <section class="modules">
+      <button class="module-btn active" data-module="complaint">Complaint</button>
+      <button class="module-btn" data-module="application">Application</button>
+      <button class="module-btn" data-module="report">Field Report</button>
+    </section>
+
+    <!-- Input card -->
+    <section class="card input-card">
+      <h2>Input</h2>
+      <div class="controls-row">
+        <div class="lang-select">
+          <label>Input language</label>
+          <select id="inputLang">
+            <option value="auto">Auto-detect</option>
+            <option value="te-IN">Telugu</option>
+            <option value="en-IN">English</option>
+          </select>
+        </div>
+
+        <div class="output-lang">
+          <label>Output</label>
+          <select id="outputLang">
+            <option value="both">Telugu + English</option>
+            <option value="te">Telugu only</option>
+            <option value="en">English only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mic-row">
+        <button id="micBtn" class="mic">🎙 Start Speaking</button>
+        <span id="micStatus" class="mic-status">idle</span>
+      </div>
+
+      <textarea id="transcript" placeholder="Speech transcript will appear here — you can type or edit." rows="4"></textarea>
+
+      <div class="helper-row">
+        <div class="honorific">
+          <label>Recipient name (optional)</label>
+          <input id="recipientName" placeholder="e.g., శ్రీ రాము" />
+          <label class="small">Auto honorific</label>
+          <select id="honorificMode">
+            <option value="none">None</option>
+            <option value="garu">గారు</option>
+            <option value="gariki">గారికి</option>
+          </select>
+        </div>
+
+        <div class="location">
+          <label>Location</label>
+          <input id="location" placeholder="e.g., Ward 7, Main Road" />
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <button id="generateBtn" class="primary">Generate Letter</button>
+        <button id="clearBtn" class="ghost">Clear</button>
+      </div>
+    </section>
+
+    <!-- Output card -->
+    <section class="card output-card">
+      <h2>Generated Letter</h2>
+
+      <div id="outputTabs" class="tabs">
+        <button class="tab active" data-show="both">Show Both</button>
+        <button class="tab" data-show="telugu">Telugu</button>
+        <button class="tab" data-show="english">English</button>
+      </div>
+
+      <div id="outputs">
+        <div id="teluguOut" class="letter-box">
+          <h3>Telugu Letter</h3>
+          <pre id="teluguLetter" contenteditable="true"></pre>
+          <button class="copyBtn" data-target="teluguLetter">Copy Telugu</button>
+        </div>
+
+        <div id="englishOut" class="letter-box">
+          <h3>English Letter</h3>
+          <pre id="englishLetter" contenteditable="true"></pre>
+          <button class="copyBtn" data-target="englishLetter">Copy English</button>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        <small>Tips: Edit content before copying. Always confirm names/locations. This is a prototype — replace the Bhashini dummy call with an approved API key for production.</small>
+      </div>
+    </section>
+
+    <section class="card help-card">
+      <h2>Quick Demo Controls</h2>
+      <ol>
+        <li>Select module (Complaint/Application/Report).</li>
+        <li>Choose input language or keep Auto-detect.</li>
+        <li>Press <b>Start Speaking</b> and speak short Telugu sentence.</li>
+        <li>Press <b>Generate Letter</b> to expand and format text (Bhashini hook / fallback used).</li>
+        <li>Edit and copy the final letter for submission.</li>
+      </ol>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <small>FormAssist — prototype. Built for community service; deploy on Vercel for demo.</small>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
