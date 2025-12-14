@@ -72,7 +72,7 @@ function detectLang(text) {
 }
 
 /* ---------- Bhashini API ---------- */
-const BHASHINI_API_KEY = "PASTE_YOUR_API_KEY_HERE";
+const BHASHINI_API_KEY = "Y6pc66KE-9Hrlyb--vzlbiVZ1c5Njr7u2iOrmfNA0ET3Elc4QEMB3oSzAqVzfE9y";
 const BHASHINI_ENDPOINT =
   "https://dhruva-api.bhashini.gov.in/services/inference/pipeline";
 
