@@ -1,95 +1,113 @@
+/* ======================================
+   FormAssist – Stable, Explainable Logic
+   ====================================== */
 
-
-const startBtn = document.getElementById("startBtn");
-const statusEl = document.getElementById("status");
+// DOM
+const micBtn = document.getElementById("micBtn");
+const micStatus = document.getElementById("micStatus");
 const transcriptEl = document.getElementById("transcript");
-const finalTextEl = document.getElementById("finalText");
 
 const speechLangSel = document.getElementById("speechLang");
 const outputLangSel = document.getElementById("outputLang");
 const letterTypeSel = document.getElementById("letterType");
 
-let recognition;
+const generateBtn = document.getElementById("generateBtn");
+const teluguOut = document.getElementById("teluguOut");
+const englishOut = document.getElementById("englishOut");
+
+let recognition = null;
+let listening = false;
 
 /* ---------- Speech Recognition ---------- */
-
 function initSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SR) {
-    alert("Speech Recognition works only in Chrome.");
+    micStatus.textContent = "Speech not supported (use Chrome)";
+    micBtn.disabled = true;
     return;
   }
 
   recognition = new SR();
   recognition.interimResults = false;
   recognition.continuous = false;
+  recognition.maxAlternatives = 1;
 
   recognition.onstart = () => {
-    statusEl.innerText = "Listening...";
+    listening = true;
+    micStatus.textContent = "listening...";
+    micBtn.textContent = "🎙 Stop";
   };
 
-  recognition.onresult = (event) => {
-    const text = event.results[0][0].transcript;
-    transcriptEl.value = text;
-    statusEl.innerText = "Captured";
+  recognition.onend = () => {
+    listening = false;
+    micStatus.textContent = "idle";
+    micBtn.textContent = "🎙 Start Speaking";
   };
 
   recognition.onerror = (e) => {
-    statusEl.innerText = "Speech error";
     console.error(e);
+    micStatus.textContent = "speech error";
+    listening = false;
+  };
+
+  recognition.onresult = (e) => {
+    transcriptEl.value = e.results[0][0].transcript;
   };
 }
 
-startBtn.onclick = () => {
+micBtn.addEventListener("click", async () => {
   if (!recognition) initSpeech();
+  if (!recognition) return;
 
   recognition.lang = speechLangSel.value;
-  recognition.start();
-};
+
+  if (listening) recognition.stop();
+  else recognition.start();
+});
+
+/* ---------- Language Detection ---------- */
+function detectLang(text) {
+  return /[\u0C00-\u0C7F]/.test(text) ? "te" : "en";
+}
 
 /* ---------- Bhashini API ---------- */
-/* ⚠️ Paste your API key here TEMPORARILY */
-const BHASHINI_API_KEY = "PASTE_YOUR_KEY_HERE";
+const BHASHINI_API_KEY = "PASTE_YOUR_API_KEY_HERE";
 const BHASHINI_ENDPOINT =
   "https://dhruva-api.bhashini.gov.in/services/inference/pipeline";
 
-async function bhashiniGenerate(text, targetLang) {
-  const payload = {
-    pipelineTasks: [
-      {
-        taskType: "translation",
-        config: {
-          language: {
-            sourceLanguage: "te",
-            targetLanguage: targetLang
-          }
+async function bhashiniTranslate(text, src, tgt) {
+  try {
+    const payload = {
+      pipelineTasks: [
+        {
+          taskType: "translation",
+          config: { language: { sourceLanguage: src, targetLanguage: tgt } }
         }
-      }
-    ],
-    inputData: {
-      input: [{ source: text }]
-    }
-  };
+      ],
+      inputData: { input: [{ source: text }] }
+    };
 
-  const res = await fetch(BHASHINI_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${BHASHINI_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+    const res = await fetch(BHASHINI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${BHASHINI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
 
-  const data = await res.json();
-  return data.pipelineResponse[0].output[0].target;
+    const data = await res.json();
+    return data.pipelineResponse?.[0]?.output?.[0]?.target || text;
+  } catch (err) {
+    console.error("Bhashini error:", err);
+    return text;
+  }
 }
 
-/* ---------- Letter Formatting ---------- */
-
-function buildLetter(type, body, lang) {
-  if (lang === "en") {
-    return `To,
+/* ---------- Templates (STRUCTURE ONLY) ---------- */
+function formatEnglish(body, type) {
+  return `To,
 The Concerned Officer
 
 Subject: ${type}
@@ -97,42 +115,50 @@ Subject: ${type}
 ${body}
 
 Thanking you.`;
-  } else {
-    return `గౌరవనీయులైన అధికారి గారికి
+}
+
+function formatTelugu(body, type) {
+  return `గౌరవనీయులైన అధికారి గారికి
 
 విషయం: ${type}
 
 ${body}
 
 ధన్యవాదాలు.`;
-  }
 }
 
 /* ---------- Generate ---------- */
-
-document.getElementById("generateBtn").onclick = async () => {
+generateBtn.addEventListener("click", async () => {
   const raw = transcriptEl.value.trim();
   if (!raw) {
     alert("Please speak first");
     return;
   }
 
-  statusEl.innerText = "Generating...";
+  const inputLang = detectLang(raw);
+  const outPref = outputLangSel.value;
+  const type = letterTypeSel.value;
 
-  const outLang = outputLangSel.value;
-  let content = raw;
+  teluguOut.value = "";
+  englishOut.value = "";
 
-  // Use Bhashini ONLY for language generation
-  if (outLang !== "en") {
-    content = await bhashiniGenerate(raw, outLang);
+  let teluguText = "";
+  let englishText = "";
+
+  if (inputLang === "te") {
+    teluguText = await bhashiniTranslate(raw, "te", "te");
+    englishText = await bhashiniTranslate(raw, "te", "en");
+  } else {
+    englishText = await bhashiniTranslate(raw, "en", "en");
+    teluguText = await bhashiniTranslate(raw, "en", "te");
   }
 
-  const letter = buildLetter(
-    letterTypeSel.value,
-    content,
-    outLang
-  );
+  if (outPref === "te" || outPref === "both") {
+    teluguOut.value = formatTelugu(teluguText, type);
+  }
 
-  finalTextEl.value = letter;
-  statusEl.innerText = "Done";
-};
+  if (outPref === "en" || outPref === "both") {
+    englishOut.value = formatEnglish(englishText, type);
+  }
+});
+
