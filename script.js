@@ -1,269 +1,138 @@
-/* FormAssist - client side MVP
-   - Web Speech API for input (Telugu/English)
-   - Dummy Bhashini hook (replace with real API key)
-   - Safe client-side expansion fallback
-   - No backend, deploy on Vercel
-*/
 
-const micBtn = document.getElementById('micBtn');
-const micStatus = document.getElementById('micStatus');
-const transcriptEl = document.getElementById('transcript');
-const inputLangSel = document.getElementById('inputLang');
-const outputLangSel = document.getElementById('outputLang');
-const generateBtn = document.getElementById('generateBtn');
-const clearBtn = document.getElementById('clearBtn');
-const teluguOut = document.getElementById('teluguLetter');
-const englishOut = document.getElementById('englishLetter');
-const recipientName = document.getElementById('recipientName');
-const honorificMode = document.getElementById('honorificMode');
-const locationInput = document.getElementById('location');
-const moduleBtns = document.querySelectorAll('.module-btn');
-const tabs = document.querySelectorAll('.tab');
-const outputsDiv = document.getElementById('outputs');
 
-let recognition = null;
-let listening = false;
+const startBtn = document.getElementById("startBtn");
+const statusEl = document.getElementById("status");
+const transcriptEl = document.getElementById("transcript");
+const finalTextEl = document.getElementById("finalText");
 
-// Feature: simple language detect (Telugu unicode check)
-function guessLanguage(text){
-  const teluguRange = /[\u0C00-\u0C7F]/;
-  if(teluguRange.test(text)) return 'te';
-  // fallback: english
-  return 'en';
-}
+const speechLangSel = document.getElementById("speechLang");
+const outputLangSel = document.getElementById("outputLang");
+const letterTypeSel = document.getElementById("letterType");
 
-// Initialize Web Speech
-function initSpeech(){
-  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
-    micBtn.disabled = true;
-    micStatus.textContent = 'Speech API not supported in this browser. Use Chrome.';
+let recognition;
+
+/* ---------- Speech Recognition ---------- */
+
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SR) {
+    alert("Speech Recognition works only in Chrome.");
     return;
   }
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
+
+  recognition = new SR();
   recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
+  recognition.continuous = false;
 
   recognition.onstart = () => {
-    listening = true;
-    micStatus.textContent = 'listening...';
-    micBtn.textContent = '🎙 Stop';
+    statusEl.innerText = "Listening...";
   };
-  recognition.onend = () => {
-    listening = false;
-    micStatus.textContent = 'idle';
-    micBtn.textContent = '🎙 Start Speaking';
-  };
-  recognition.onerror = (e) => {
-    listening = false;
-    micStatus.textContent = 'error: ' + (e.error || 'unknown');
-    micBtn.textContent = '🎙 Start Speaking';
-  };
+
   recognition.onresult = (event) => {
     const text = event.results[0][0].transcript;
-    // append or set
-    if(transcriptEl.value && transcriptEl.value.trim().length>0){
-      transcriptEl.value = transcriptEl.value.trim() + ' ' + text;
-    } else {
-      transcriptEl.value = text;
-    }
+    transcriptEl.value = text;
+    statusEl.innerText = "Captured";
+  };
+
+  recognition.onerror = (e) => {
+    statusEl.innerText = "Speech error";
+    console.error(e);
   };
 }
 
-// Mic button handler
-micBtn.addEventListener('click', () => {
-  if(!recognition){ initSpeech(); }
-  if(!recognition) return;
-  // decide recognition language
-  let chosen = inputLangSel.value;
-  if(chosen === 'auto'){
-    // default to Telugu if UI output both else en
-    chosen = 'te-IN';
-  }
-  recognition.lang = chosen;
-  if(listening){
-    recognition.stop();
-  } else {
-    try {
-      recognition.start();
-    } catch(e) {
-      // ignore already started
+startBtn.onclick = () => {
+  if (!recognition) initSpeech();
+
+  recognition.lang = speechLangSel.value;
+  recognition.start();
+};
+
+/* ---------- Bhashini API ---------- */
+/* ⚠️ Paste your API key here TEMPORARILY */
+const BHASHINI_API_KEY = "PASTE_YOUR_KEY_HERE";
+const BHASHINI_ENDPOINT =
+  "https://dhruva-api.bhashini.gov.in/services/inference/pipeline";
+
+async function bhashiniGenerate(text, targetLang) {
+  const payload = {
+    pipelineTasks: [
+      {
+        taskType: "translation",
+        config: {
+          language: {
+            sourceLanguage: "te",
+            targetLanguage: targetLang
+          }
+        }
+      }
+    ],
+    inputData: {
+      input: [{ source: text }]
     }
-  }
-});
+  };
 
-// module buttons
-moduleBtns.forEach(b => b.addEventListener('click', (e) => {
-  moduleBtns.forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
-}));
-
-// tabs
-tabs.forEach(t => t.addEventListener('click', () => {
-  tabs.forEach(x => x.classList.remove('active'));
-  t.classList.add('active');
-  const show = t.dataset.show;
-  if(show === 'both'){
-    document.getElementById('teluguOut').style.display = 'block';
-    document.getElementById('englishOut').style.display = 'block';
-  } else if(show === 'telugu'){
-    document.getElementById('teluguOut').style.display = 'block';
-    document.getElementById('englishOut').style.display = 'none';
-  } else {
-    document.getElementById('teluguOut').style.display = 'none';
-    document.getElementById('englishOut').style.display = 'block';
-  }
-}));
-
-// helper: apply honorific
-function applyHonorific(name, mode){
-  if(!name || name.trim()==='') return '';
-  name = name.trim();
-  if(mode === 'garu') return `${name} గారు`;
-  if(mode === 'gariki') return `${name} గారికి`;
-  return name;
-}
-
-// Dummy Bhashini call (replace when key arrives)
-async function callBhashiniExpand(text, targetLang='te', mode='expand'){
-  // mode: 'expand' -> expand short text to paragraph
-  // targetLang: 'te' or 'en'
-  // THIS IS A DUMMY FUNCTION for MVP.
-  // Replace with real fetch() to Bhashini when API key available.
-  // Example fetch snippet (uncomment + replace):
-  /*
-  const resp = await fetch('https://api.bhashini.example/expand', {
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'Authorization':'Bearer <YOUR_KEY>'
+  const res = await fetch(BHASHINI_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${BHASHINI_API_KEY}`,
+      "Content-Type": "application/json"
     },
-    body: JSON.stringify({text, targetLang, mode})
+    body: JSON.stringify(payload)
   });
-  const data = await resp.json();
-  return data.output;
-  */
-  // Fallback simple safe expansion (client-side)
-  return simpleSafeExpand(text, targetLang);
+
+  const data = await res.json();
+  return data.pipelineResponse[0].output[0].target;
 }
 
-// Simple safe expansion (client-side): adds 3-5 polite sentences around user content
-function simpleSafeExpand(text, targetLang){
-  const t = text.trim();
-  if(!t) return '';
-  if(targetLang === 'en'){
-    // English expansion templates
-    const s1 = `I wish to bring to your attention that ${t}.`;
-    const s2 = `This issue is causing inconvenience to the local residents.`;
-    const s3 = `I kindly request you to look into this matter and take necessary action at the earliest.`;
-    return `${s1} ${s2} ${s3}`;
+/* ---------- Letter Formatting ---------- */
+
+function buildLetter(type, body, lang) {
+  if (lang === "en") {
+    return `To,
+The Concerned Officer
+
+Subject: ${type}
+
+${body}
+
+Thanking you.`;
   } else {
-    // Telugu expansion - modern, simple phrases (no archaic language)
-    const s1 = `ఈ విషయాన్ని మీ దృష్టికి తీసుకువచ్చవలసిన అవసరం ఏర్పడింది: ${t}.`;
-    const s2 = `ఈ సమస్య వల్ల స్థానికుల‌కు అసౌకర్యం కలుగుతోంది.`;
-    const s3 = `దయచేసి దీన్ని పరిశీలించి అవసరమైతే చర్య చేపట్టండి.`;
-    return `${s1} ${s2} ${s3}`;
+    return `గౌరవనీయులైన అధికారి గారికి
+
+విషయం: ${type}
+
+${body}
+
+ధన్యవాదాలు.`;
   }
 }
 
-// generate letter templates
-function buildTeluguLetter(expandedPara, module){
-  const recipient = applyHonorific(recipientName.value, honorificMode.value);
-  const subjMap = {
-    complaint: 'ఫిర్యాదు',
-    application: 'అప్లికేషన్',
-    report: 'ఫీల్డ్ రిపోర్ట్'
-  };
-  const subject = subjMap[module] || 'సంబంధిత విషయం';
-  const loc = locationInput.value || '';
-  // simple template
-  return `${recipient ? recipient + ',' : ''}\n\nవిషయం: ${subject} - ${loc}\n\n${expandedPara}\n\nదయచేసి అవసరమైన చర్యలు తీసుకోవాలని కోరుతున్నాను.\n\nధన్యవాదాలు,\n\n${loc ? loc + '\n' : ''}`;
-}
+/* ---------- Generate ---------- */
 
-function buildEnglishLetter(expandedPara, module){
-  const recipient = recipientName.value ? recipientName.value : 'The Concerned Officer';
-  const subjMap = {
-    complaint: 'Complaint',
-    application: 'Application',
-    report: 'Field Visit Report'
-  };
-  const subject = subjMap[module] || 'Related Matter';
-  const loc = locationInput.value || '';
-  return `To,\n${recipient}\n\nSubject: ${subject} ${loc ? ' - ' + loc : ''}\n\n${expandedPara}\n\nI request you to kindly look into this matter and take the necessary action.\n\nThank you,\n\n${loc ? loc + '\n' : ''}`;
-}
-
-// copy handler
-document.querySelectorAll('.copyBtn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = btn.dataset.target;
-    const el = document.getElementById(target);
-    navigator.clipboard.writeText(el.textContent.trim()).then(() => {
-      btn.textContent = 'Copied ✓';
-      setTimeout(()=> btn.textContent = 'Copy ' + (target === 'teluguLetter' ? 'Telugu' : 'English'), 1500);
-    });
-  });
-});
-
-clearBtn.addEventListener('click', () => {
-  transcriptEl.value = '';
-  teluguOut.textContent = '';
-  englishOut.textContent = '';
-  locationInput.value = '';
-  recipientName.value = '';
-});
-
-// generate logic
-generateBtn.addEventListener('click', async () => {
-  const module = document.querySelector('.module-btn.active').dataset.module;
-  let raw = transcriptEl.value.trim();
-  if(!raw){
-    alert('Please speak or type the issue first.');
+document.getElementById("generateBtn").onclick = async () => {
+  const raw = transcriptEl.value.trim();
+  if (!raw) {
+    alert("Please speak first");
     return;
   }
 
-  // determine input language if auto
-  let inLang = inputLangSel.value;
-  if(inLang === 'auto'){
-    const guessed = guessLanguage(raw);
-    inLang = guessed === 'te' ? 'te-IN' : 'en-IN';
+  statusEl.innerText = "Generating...";
+
+  const outLang = outputLangSel.value;
+  let content = raw;
+
+  // Use Bhashini ONLY for language generation
+  if (outLang !== "en") {
+    content = await bhashiniGenerate(raw, outLang);
   }
 
-  // decide outputs
-  const outPref = outputLangSel.value; // both / te / en
+  const letter = buildLetter(
+    letterTypeSel.value,
+    content,
+    outLang
+  );
 
-  // Call Bhashini or fallback
-  // Prefer client-side safety -> but code attempts real API if you implement callBhashiniExpand to fetch
-  let expandedTelugu = '';
-  let expandedEnglish = '';
-
-  // If input is Telugu script or chosen Telugu, expand accordingly
-  if( guessLanguage(raw) === 'te' ){
-    // expand Telugu
-    expandedTelugu = await callBhashiniExpand(raw, 'te', 'expand');
-    // english: either translate via Bhashini NMT or create english expanded fallback
-    expandedEnglish = await callBhashiniExpand(raw, 'en', 'translate');
-  } else {
-    // input English -> expand english and optionally produce Telugu via translation
-    expandedEnglish = await callBhashiniExpand(raw, 'en', 'expand');
-    expandedTelugu = await callBhashiniExpand(raw, 'te', 'translate');
-  }
-
-  // Build templates
-  const telLetter = buildTeluguLetter(expandedTelugu, module);
-  const enLetter = buildEnglishLetter(expandedEnglish, module);
-
-  // Fill outputs according to user preference
-  if(outPref === 'both' || outPref === 'te'){
-    teluguOut.textContent = telLetter;
-  } else {
-    teluguOut.textContent = '';
-  }
-  if(outPref === 'both' || outPref === 'en'){
-    englishOut.textContent = enLetter;
-  } else {
-    englishOut.textContent = '';
-  }
-});
-
-// init UI
-initSpeech();
+  finalTextEl.value = letter;
+  statusEl.innerText = "Done";
+};
